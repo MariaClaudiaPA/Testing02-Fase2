@@ -56,7 +56,7 @@ Create table detalle_comanda (
     subtotal decimal(5,2),
     primary key(id_comanda,id_producto),
     foreign key (id_comanda) references comanda(id_comanda),
-    foreign key (id_producto) references producto(id_producto)
+    foreign key (id_producto) references producto(id_producto) on delete cascade
 ) ENGINE=InnoDB;
 
 Create table ventas_tarjetas (

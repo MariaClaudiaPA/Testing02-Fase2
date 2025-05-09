@@ -4,6 +4,7 @@ from datetime import datetime
 from tkinter import ttk
 from tkinter import simpledialog
 import mysql.connector
+import re
 
 # Configuración de la conexión a la base de datos
 def conectar_bd():
@@ -96,10 +97,27 @@ def eliminar_producto():
 
     def confirmar_eliminar():
         id_producto = id_producto_entry.get().strip()
+        if not id_producto:
+            messagebox.showerror("Error", "El ID del producto no puede estar vacío.")
+            return
+
+        if len(id_producto) != 6 or not id_producto.isalnum():
+            messagebox.showerror("Error", "El ID debe tener 6 caracteres alfanuméricos y no puede contener caracteres especiales ni espacios.")
+            return
+        
+        if re.search(r'[^a-zA-Z0-9]', id_producto):
+            messagebox.showerror("Error", "El ID no puede contener caracteres especiales ni espacios.")
+            return
+
         conn = conectar_bd()
         if conn:
             cursor = conn.cursor()
             try:
+                cursor.execute("SELECT COUNT(*) FROM producto WHERE id_producto = %s", (id_producto,))
+                if cursor.fetchone()[0] == 0:
+                    messagebox.showerror("Error", "El producto con ese ID no existe.")
+                    return
+
                 cursor.callproc("EliminarProducto", (id_producto,))
                 conn.commit()
                 messagebox.showinfo("Éxito", "Producto eliminado exitosamente.")
