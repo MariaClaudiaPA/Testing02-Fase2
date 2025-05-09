@@ -863,17 +863,26 @@ def eliminar_cierre_caja():
 
 def eliminar_comanda():
     id_comanda = simpledialog.askstring("Eliminar Comanda", "Ingresa el ID de la comanda a eliminar:")
-    if not id_comanda:
+    
+    if not id_comanda or not id_comanda.strip():
+        messagebox.showwarning("Advertencia", "Debe ingresar un ID válido.")
         return
 
-    with conectar_bd() as conn:
-        with conn.cursor() as cursor:
-            try:
+    confirmacion = messagebox.askyesno("Confirmar", f"¿Estás seguro de que deseas eliminar la comanda con ID {id_comanda}?")
+    if not confirmacion:
+        return
+
+    try:
+        with conectar_bd() as conn:
+            with conn.cursor() as cursor:
                 cursor.callproc("EliminarComanda", (id_comanda,))
-                conn.commit()
-                messagebox.showinfo("Éxito", f"La comanda con ID {id_comanda} fue eliminada exitosamente.")
-            except mysql.connector.Error as e:
-                messagebox.showerror("Error", f"Error al eliminar la comanda: {e}")
+            conn.commit()
+        messagebox.showinfo("Éxito", f"La comanda con ID {id_comanda} fue eliminada exitosamente.")
+    except Error as e:
+        messagebox.showerror("Error", f"No se pudo eliminar la comanda:\n{e}")
+    except Exception as e:
+        messagebox.showerror("Error inesperado", f"Ocurrió un error inesperado:\n{e}")
+        
 
 # Función para consultar totales por tipo de pago en un rango de fechas
 def consulta_totales():
