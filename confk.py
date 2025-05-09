@@ -1204,25 +1204,32 @@ canvas.configure(yscrollcommand=scrollbar.set)
 canvas.pack(side="left", fill="both", expand=True)
 scrollbar.pack(side="right", fill="y")
 
-# Colocar los botones de "Reportes" en un grid dentro del scrollable_frame
+# --- Estilos para los botones ---
+estilo_boton = {
+    "font": boton_font,
+    "bg": boton_bg_color,
+    "fg": boton_fg_color,
+    "activebackground": boton_active_bg,
+    "activeforeground": boton_active_fg,
+    "width": 22,
+    "height": 3,
+    "padx": 10,
+    "pady": 5
+}
+
+# --- Distribución en grid dentro de scrollable_frame ---
+botones_por_fila = 5  # Máximo de botones por fila
+
 for i, (texto, comando) in enumerate(botones_reportes):
-    fila = i // 5  # Hasta 5 botones por fila
-    columna = i % 5
-    boton = tk.Button(
-        scrollable_frame,
-        text=texto,
-        command=comando,
-        font=boton_font,
-        bg=boton_bg_color,
-        fg=boton_fg_color,
-        activebackground=boton_active_bg,
-        activeforeground=boton_active_fg,
-        width=22,  # Aumenta el ancho
-        height=3,  # Aumenta el alto para más espacio
-        padx=10,  # Espaciado interno horizontal
-        pady=5   # Espaciado interno vertical
-    )
-    boton.grid(row=fila, column=columna, padx=15, pady=15)  # Ajusta los márgenes externos
+    fila = i // botones_por_fila
+    columna = i % botones_por_fila
+
+    boton = tk.Button(scrollable_frame, text=texto, command=comando, **estilo_boton)
+    boton.grid(row=fila, column=columna, padx=15, pady=15)
+
+# --- Opcional: hacer columnas expandibles si se desea adaptabilidad ---
+for col in range(botones_por_fila):
+    scrollable_frame.grid_columnconfigure(col, weight=1)
 
 # Ajustar las columnas en "Reportes" para que ocupen espacio uniformemente
 for col in range(5):
