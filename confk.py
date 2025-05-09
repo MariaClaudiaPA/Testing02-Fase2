@@ -5,8 +5,6 @@ from tkinter import ttk
 from tkinter import simpledialog
 import mysql.connector
 
-
-
 # Configuración de la conexión a la base de datos
 def conectar_bd():
     try:
@@ -134,8 +132,16 @@ def actualizar_producto():
     def guardar_actualizacion():
         id_producto = id_producto_entry.get().strip()
         descripcion = descripcion_entry.get().strip()
+
+        if descripcion.isnumeric():
+            messagebox.showerror("Error", "La descripción no puede contener solo números.")
+            return
+
         try:
             precio = float(precio_entry.get().strip())
+            if precio < 0:
+                messagebox.showerror("Error", "El precio no puede ser negativo.")
+                return
         except ValueError:
             messagebox.showerror("Error", "Ingrese un precio válido.")
             return
@@ -144,6 +150,11 @@ def actualizar_producto():
         if conn:
             cursor = conn.cursor()
             try:
+                cursor.execute("SELECT COUNT(*) FROM producto WHERE id_producto = %s", (id_producto,))
+                if cursor.fetchone()[0] == 0:
+                    messagebox.showerror("Error", "El producto con ese ID no existe.")
+                    return
+
                 cursor.callproc("ActualizarProducto", (id_producto, descripcion, precio))
                 conn.commit()
                 messagebox.showinfo("Éxito", "Producto actualizado exitosamente.")
