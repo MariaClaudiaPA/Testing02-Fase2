@@ -4,6 +4,7 @@ from datetime import datetime
 from tkinter import ttk
 from tkinter import simpledialog
 import mysql.connector
+import re
 
 
 
@@ -13,7 +14,7 @@ def conectar_bd():
         conexion = mysql.connector.connect(
             host="localhost",
             user="root",
-            password="1234",
+            password="PoisonAngelDust.020605",
             database="BDregistro_ventas"
         )
         return conexion
@@ -43,31 +44,65 @@ def obtener_productos():
             conn.close()
 
 
-
 def agregar_producto():
-    ventana = Toplevel()
+    ventana = tk.Toplevel()
     ventana.title("Agregar Producto")
-    ventana.geometry("300x300")
+    ventana.geometry("400x400")
 
-    tk.Label(ventana, text="ID del Producto:").pack(pady=5)
+    tk.Label(ventana, text="ID del Producto (Formato AAA000):").pack(pady=5)
     id_producto_entry = tk.Entry(ventana)
     id_producto_entry.pack(pady=5)
 
-    tk.Label(ventana, text="Descripción:").pack(pady=5)
+    tk.Label(ventana, text="Descripción (obligatoria):").pack(pady=5)
     descripcion_entry = tk.Entry(ventana)
     descripcion_entry.pack(pady=5)
 
-    tk.Label(ventana, text="Precio Unitario:").pack(pady=5)
+    tk.Label(ventana, text="Precio Unitario (máx 4 caracteres, mínimo 0.50):").pack(pady=5)
     precio_entry = tk.Entry(ventana)
     precio_entry.pack(pady=5)
+
+    def validar_id_producto(id_producto):
+        if not id_producto:
+            raise ValueError("El ID del producto no puede estar vacío.")
+        if len(id_producto) != 6:
+            raise ValueError("El ID del producto debe tener exactamente 6 caracteres.")
+        if not re.match(r'^[A-Z]{3}[0-9]{3}$', id_producto):
+            raise ValueError("El ID debe tener el formato AAA000 (3 letras mayúsculas y 3 números).")
+
+    def validar_precio(precio_texto):
+        if not precio_texto:
+            raise ValueError("El precio unitario no puede estar vacío.")
+        if len(precio_texto) > 4:
+            raise ValueError("El precio unitario no puede tener más de 4 caracteres.")
+        # Validar que solo contenga números y punto decimal
+        if not re.match(r'^\d+(\.\d{1,2})?$', precio_texto):
+            raise ValueError("El precio debe ser un número válido (máximo dos decimales).")
+        precio = float(precio_texto)
+        if precio < 0.50:
+            raise ValueError("El precio unitario debe ser al menos 0.50.")
+        if precio < 0:
+            raise ValueError("El precio unitario no puede ser negativo.")
+        return precio
 
     def guardar_producto():
         id_producto = id_producto_entry.get().strip()
         descripcion = descripcion_entry.get().strip()
+        precio_texto = precio_entry.get().strip()
+
         try:
-            precio = float(precio_entry.get().strip())
-        except ValueError:
-            messagebox.showerror("Error", "Ingrese un precio válido.")
+            validar_id_producto(id_producto)
+        except ValueError as e:
+            messagebox.showerror("Error en ID", str(e))
+            return
+
+        if not descripcion:
+            messagebox.showerror("Error en Descripción", "La descripción es obligatoria.")
+            return
+
+        try:
+            precio = validar_precio(precio_texto)
+        except ValueError as e:
+            messagebox.showerror("Error en Precio", str(e))
             return
 
         conn = conectar_bd()
@@ -86,20 +121,54 @@ def agregar_producto():
 
     tk.Button(ventana, text="Guardar", command=guardar_producto).pack(pady=10)
 
-   
 def eliminar_producto():
-    ventana = Toplevel()
+    ventana = tk.Toplevel()
     ventana.title("Eliminar Producto")
     ventana.geometry("300x200")
 
-    tk.Label(ventana, text="ID del Producto:").pack(pady=5)
+    tk.Label(ventana, text="ID del Producto (Formato AAA000):").pack(pady=5)
     id_producto_entry = tk.Entry(ventana)
     id_producto_entry.pack(pady=5)
 
+    def validar_id_producto(id_producto):
+        if not id_producto:
+            raise ValueError("El ID del producto no puede estar vacío.")
+        if len(id_producto) != 6:
+            raise ValueError("El ID del producto debe tener exactamente 6 caracteres.")
+        if not re.match(r'^[A-Z]{3}[0-9]{3}$', id_producto):
+            raise ValueError("El ID debe tener el formato AAA000 (3 letras mayúsculas y 3 números).")
+
+    def producto_existe(id_producto, conn):
+        cursor = conn.cursor()  
+        try:
+            cursor.callproc('ProductoExiste', (id_producto,))
+            for result in cursor.stored_results():
+                row = result.fetchone()
+                if row and row[0] > 0:
+                    return True
+                else:
+                    return False
+        except mysql.connector.Error as e:
+            messagebox.showerror("Error", f"Error al verificar producto: {e}")
+            return False
+        finally:
+            cursor.close()
+
     def confirmar_eliminar():
         id_producto = id_producto_entry.get().strip()
+        try:
+            validar_id_producto(id_producto)
+        except ValueError as e:
+            messagebox.showerror("Error en ID", str(e))
+            return
+
         conn = conectar_bd()
         if conn:
+            if not producto_existe(id_producto, conn):
+                messagebox.showerror("Error", "El producto no existe en la base de datos.")
+                conn.close()
+                return
+
             cursor = conn.cursor()
             try:
                 cursor.callproc("EliminarProducto", (id_producto,))

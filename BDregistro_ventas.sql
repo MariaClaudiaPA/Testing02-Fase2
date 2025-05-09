@@ -868,3 +868,21 @@ BEGIN
 END //
 
 DELIMITER ;
+
+DELIMITER $$
+
+DELIMITER //
+
+DELIMITER //
+
+CREATE PROCEDURE ProductoExiste (
+    IN p_id_producto VARCHAR(6),
+    OUT p_existe INT
+)
+BEGIN
+    SELECT COUNT(*) INTO p_existe
+    FROM Productos
+    WHERE id_producto = p_id_producto;
+END//
+
+DELIMITER ;
