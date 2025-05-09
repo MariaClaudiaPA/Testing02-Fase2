@@ -14,7 +14,7 @@ def conectar_bd():
             host="localhost", # Cambiar de acuerdo a cada usuario
             user="root",
             password="root1234", # Cambiar de acuerdo a cada usuario
-            database="BDregistro_ventas"
+            database="BDregistro_ventas" # Se necesita importar a MySQL
         )
         return conexion
     except mysql.connector.Error as e:
