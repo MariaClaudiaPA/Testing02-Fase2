@@ -48,7 +48,7 @@ def agregar_producto():
     ventana.title("Agregar Producto")
     ventana.geometry("300x300")
 
-    tk.Label(ventana, text="ID del Producto:").pack(pady=5)
+    tk.Label(ventana, text="ID del Producto (e.g. AAA000):").pack(pady=5)
     id_producto_entry = tk.Entry(ventana)
     id_producto_entry.pack(pady=5)
 
@@ -63,8 +63,26 @@ def agregar_producto():
     def guardar_producto():
         id_producto = id_producto_entry.get().strip()
         descripcion = descripcion_entry.get().strip()
+        if not id_producto:
+            messagebox.showerror("Error", "El ID del producto no puede estar vacío.")
+            return
+        if not re.match(r'^[A-Za-z]{3}[0-9]{3}$', id_producto):  # Formato "AAA000"
+            messagebox.showerror("Error", "El ID debe seguir el formato 'AAA000' (tres letras seguidas de tres números).")
+            return
+        if len(id_producto) != 6 or not id_producto.isalnum():
+            messagebox.showerror("Error", "El ID debe tener exactamente 6 caracteres alfanuméricos.")
+            return
+        if not descripcion:
+            messagebox.showerror("Error", "La descripción no puede estar vacía.")
+            return
+        if re.search(r'[^a-zA-Z0-9\sáéíóúÁÉÍÓÚñÑ]', descripcion):
+            messagebox.showerror("Error", "La descripción no puede contener caracteres especiales.")
+            return
         try:
             precio = float(precio_entry.get().strip())
+            if precio < 0:
+                messagebox.showerror("Error", "El precio debe ser mayor a 0")
+                return
         except ValueError:
             messagebox.showerror("Error", "Ingrese un precio válido.")
             return
