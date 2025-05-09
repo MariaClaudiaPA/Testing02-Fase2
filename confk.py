@@ -11,9 +11,9 @@ import mysql.connector
 def conectar_bd():
     try:
         conexion = mysql.connector.connect(
-            host="localhost",
+            host="localhost", # Cambiar de acuerdo a cada usuario
             user="root",
-            password="1234",
+            password="root1234", # Cambiar de acuerdo a cada usuario
             database="BDregistro_ventas"
         )
         return conexion
