@@ -139,12 +139,15 @@ def eliminar_producto():
             raise ValueError("El ID debe tener el formato AAA000 (3 letras mayúsculas y 3 números).")
 
     def producto_existe(id_producto, conn):
-        cursor = conn.cursor()
+        cursor = conn.cursor()  
         try:
-            query = "SELECT COUNT(*) FROM Productos WHERE id_producto = %s"
-            cursor.execute(query, (id_producto,))
-            resultado = cursor.fetchone()
-            return resultado[0] > 0
+            cursor.callproc('ProductoExiste', (id_producto,))
+            for result in cursor.stored_results():
+                row = result.fetchone()
+                if row and row[0] > 0:
+                    return True
+                else:
+                    return False
         except mysql.connector.Error as e:
             messagebox.showerror("Error", f"Error al verificar producto: {e}")
             return False
@@ -179,7 +182,7 @@ def eliminar_producto():
                 conn.close()
 
     tk.Button(ventana, text="Eliminar", command=confirmar_eliminar).pack(pady=10)
-    
+
 def actualizar_producto():
     ventana = Toplevel()
     ventana.title("Actualizar Producto")
