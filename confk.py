@@ -302,6 +302,9 @@ def agregar_comanda():
                 cantidad = int(cantidad_entry.get())
                 precio_unitario = next(p[2] for p in productos_disponibles if p[0] == id_producto)
                 subtotal = cantidad * precio_unitario
+                if subtotal < 0:
+                    messagebox.showerror("Error", "El subtotal no puede ser negativo.")
+                    return
                 productos.append((id_producto, descripcion, cantidad, subtotal))
                 lista_productos.insert(tk.END, f"{descripcion} - Cantidad: {cantidad}, Subtotal: {subtotal:.2f}")
                 total_label.config(text=f"Total: {sum([p[3] for p in productos]):.2f}")
@@ -334,6 +337,9 @@ def agregar_comanda():
                 codigo_tipo_pago = tipo_pago_info[0]
                 nombre_pago = tipo_pago_info[1]
                 monto = float(monto_entry.get())
+                if monto < 0:  
+                    messagebox.showerror("Error", "El monto no puede ser negativo.")
+                    return
                 pagos.append((codigo_tipo_pago, nombre_pago, monto))
                 lista_pagos.insert(tk.END, f"{nombre_pago}: {monto:.2f}")
                 total_pagos_label.config(text=f"Total Pagos: {sum([p[2] for p in pagos]):.2f}")
@@ -911,11 +917,19 @@ def eliminar_cierre_caja():
 def eliminar_comanda():
     id_comanda = simpledialog.askstring("Eliminar Comanda", "Ingresa el ID de la comanda a eliminar:")
     if not id_comanda:
+        messagebox.showerror("Error", "El ID de la comanda no puede estar vacío.")
+        return
+    if not id_comanda.startswith("Nª") or len(id_comanda) != 8 or not id_comanda[2:].isdigit():
+        messagebox.showerror("Error", "El ID debe seguir el formato 'Nª123456' (con 'N°' seguido de 6 dígitos).")
         return
 
     with conectar_bd() as conn:
         with conn.cursor() as cursor:
             try:
+                cursor.execute("SELECT COUNT(*) FROM comanda WHERE id_comanda = %s", (id_comanda,))
+                if cursor.fetchone()[0] == 0:
+                    messagebox.showerror("Error", f"No se encontró una comanda con ID {id_comanda}.")
+                    return
                 cursor.callproc("EliminarComanda", (id_comanda,))
                 conn.commit()
                 messagebox.showinfo("Éxito", f"La comanda con ID {id_comanda} fue eliminada exitosamente.")
