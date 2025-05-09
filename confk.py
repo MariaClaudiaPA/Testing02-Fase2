@@ -4,6 +4,7 @@ from datetime import datetime
 from tkinter import ttk
 from tkinter import simpledialog
 import mysql.connector
+import re
 
 
 
@@ -13,7 +14,7 @@ def conectar_bd():
         conexion = mysql.connector.connect(
             host="localhost",
             user="root",
-            password="1234",
+            password="PoisonAngelDust.020605",
             database="BDregistro_ventas"
         )
         return conexion
@@ -45,11 +46,11 @@ def obtener_productos():
 
 
 def agregar_producto():
-    ventana = Toplevel()
+    ventana = tk.Toplevel()
     ventana.title("Agregar Producto")
-    ventana.geometry("300x300")
+    ventana.geometry("400x400")
 
-    tk.Label(ventana, text="ID del Producto:").pack(pady=5)
+    tk.Label(ventana, text="ID del Producto (Formato AAA000):").pack(pady=5)
     id_producto_entry = tk.Entry(ventana)
     id_producto_entry.pack(pady=5)
 
@@ -57,15 +58,34 @@ def agregar_producto():
     descripcion_entry = tk.Entry(ventana)
     descripcion_entry.pack(pady=5)
 
-    tk.Label(ventana, text="Precio Unitario:").pack(pady=5)
+    tk.Label(ventana, text="Precio Unitario (máx 4 caracteres, mínimo 0.50):").pack(pady=5)
     precio_entry = tk.Entry(ventana)
     precio_entry.pack(pady=5)
+    
+    def validar_id_producto(id_producto):
+        # Validar que no esté vacío
+        if not id_producto:
+            raise ValueError("El ID del producto no puede estar vacío.")
+        # Validar longitud exacta 6 caracteres
+        if len(id_producto) != 6:
+            raise ValueError("El ID del producto debe tener exactamente 6 caracteres.")
+        # Validar formato AAA000 usando expresión regular
+        if not re.match(r'^[A-Z]{3}[0-9]{3}$', id_producto):
+            raise ValueError("El ID debe tener el formato AAA000 (3 letras mayúsculas y 3 números).")
 
     def guardar_producto():
         id_producto = id_producto_entry.get().strip()
         descripcion = descripcion_entry.get().strip()
+        precio_texto = precio_entry.get().strip()
+
         try:
-            precio = float(precio_entry.get().strip())
+            validar_id_producto(id_producto)
+        except ValueError as e:
+            messagebox.showerror("Error en ID", str(e))
+            return
+
+        try:
+            precio = float(precio_texto)
         except ValueError:
             messagebox.showerror("Error", "Ingrese un precio válido.")
             return
