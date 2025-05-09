@@ -53,7 +53,7 @@ def agregar_producto():
     id_producto_entry = tk.Entry(ventana)
     id_producto_entry.pack(pady=5)
 
-    tk.Label(ventana, text="Descripción:").pack(pady=5)
+    tk.Label(ventana, text="Descripción (obligatoria):").pack(pady=5)
     descripcion_entry = tk.Entry(ventana)
     descripcion_entry.pack(pady=5)
 
@@ -95,6 +95,10 @@ def agregar_producto():
             messagebox.showerror("Error en ID", str(e))
             return
 
+        if not descripcion:
+            messagebox.showerror("Error en Descripción", "La descripción es obligatoria.")
+            return
+
         try:
             precio = validar_precio(precio_texto)
         except ValueError as e:
@@ -118,18 +122,50 @@ def agregar_producto():
     tk.Button(ventana, text="Guardar", command=guardar_producto).pack(pady=10)
 
 def eliminar_producto():
-    ventana = Toplevel()
+    ventana = tk.Toplevel()
     ventana.title("Eliminar Producto")
     ventana.geometry("300x200")
 
-    tk.Label(ventana, text="ID del Producto:").pack(pady=5)
+    tk.Label(ventana, text="ID del Producto (Formato AAA000):").pack(pady=5)
     id_producto_entry = tk.Entry(ventana)
     id_producto_entry.pack(pady=5)
 
+    def validar_id_producto(id_producto):
+        if not id_producto:
+            raise ValueError("El ID del producto no puede estar vacío.")
+        if len(id_producto) != 6:
+            raise ValueError("El ID del producto debe tener exactamente 6 caracteres.")
+        if not re.match(r'^[A-Z]{3}[0-9]{3}$', id_producto):
+            raise ValueError("El ID debe tener el formato AAA000 (3 letras mayúsculas y 3 números).")
+
+    def producto_existe(id_producto, conn):
+        cursor = conn.cursor()
+        try:
+            query = "SELECT COUNT(*) FROM Productos WHERE id_producto = %s"
+            cursor.execute(query, (id_producto,))
+            resultado = cursor.fetchone()
+            return resultado[0] > 0
+        except mysql.connector.Error as e:
+            messagebox.showerror("Error", f"Error al verificar producto: {e}")
+            return False
+        finally:
+            cursor.close()
+
     def confirmar_eliminar():
         id_producto = id_producto_entry.get().strip()
+        try:
+            validar_id_producto(id_producto)
+        except ValueError as e:
+            messagebox.showerror("Error en ID", str(e))
+            return
+
         conn = conectar_bd()
         if conn:
+            if not producto_existe(id_producto, conn):
+                messagebox.showerror("Error", "El producto no existe en la base de datos.")
+                conn.close()
+                return
+
             cursor = conn.cursor()
             try:
                 cursor.callproc("EliminarProducto", (id_producto,))
@@ -143,7 +179,7 @@ def eliminar_producto():
                 conn.close()
 
     tk.Button(ventana, text="Eliminar", command=confirmar_eliminar).pack(pady=10)
-
+    
 def actualizar_producto():
     ventana = Toplevel()
     ventana.title("Actualizar Producto")
