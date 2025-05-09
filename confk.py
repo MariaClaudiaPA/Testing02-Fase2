@@ -44,7 +44,6 @@ def obtener_productos():
             conn.close()
 
 
-
 def agregar_producto():
     ventana = tk.Toplevel()
     ventana.title("Agregar Producto")
@@ -61,17 +60,29 @@ def agregar_producto():
     tk.Label(ventana, text="Precio Unitario (máx 4 caracteres, mínimo 0.50):").pack(pady=5)
     precio_entry = tk.Entry(ventana)
     precio_entry.pack(pady=5)
-    
+
     def validar_id_producto(id_producto):
-        # Validar que no esté vacío
         if not id_producto:
             raise ValueError("El ID del producto no puede estar vacío.")
-        # Validar longitud exacta 6 caracteres
         if len(id_producto) != 6:
             raise ValueError("El ID del producto debe tener exactamente 6 caracteres.")
-        # Validar formato AAA000 usando expresión regular
         if not re.match(r'^[A-Z]{3}[0-9]{3}$', id_producto):
             raise ValueError("El ID debe tener el formato AAA000 (3 letras mayúsculas y 3 números).")
+
+    def validar_precio(precio_texto):
+        if not precio_texto:
+            raise ValueError("El precio unitario no puede estar vacío.")
+        if len(precio_texto) > 4:
+            raise ValueError("El precio unitario no puede tener más de 4 caracteres.")
+        # Validar que solo contenga números y punto decimal
+        if not re.match(r'^\d+(\.\d{1,2})?$', precio_texto):
+            raise ValueError("El precio debe ser un número válido (máximo dos decimales).")
+        precio = float(precio_texto)
+        if precio < 0.50:
+            raise ValueError("El precio unitario debe ser al menos 0.50.")
+        if precio < 0:
+            raise ValueError("El precio unitario no puede ser negativo.")
+        return precio
 
     def guardar_producto():
         id_producto = id_producto_entry.get().strip()
@@ -85,9 +96,9 @@ def agregar_producto():
             return
 
         try:
-            precio = float(precio_texto)
-        except ValueError:
-            messagebox.showerror("Error", "Ingrese un precio válido.")
+            precio = validar_precio(precio_texto)
+        except ValueError as e:
+            messagebox.showerror("Error en Precio", str(e))
             return
 
         conn = conectar_bd()
@@ -106,7 +117,6 @@ def agregar_producto():
 
     tk.Button(ventana, text="Guardar", command=guardar_producto).pack(pady=10)
 
-   
 def eliminar_producto():
     ventana = Toplevel()
     ventana.title("Eliminar Producto")
