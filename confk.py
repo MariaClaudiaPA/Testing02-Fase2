@@ -47,7 +47,7 @@ def obtener_productos():
 def agregar_producto():
     ventana = Toplevel()
     ventana.title("Agregar Producto")
-    ventana.geometry("300x300")
+    ventana.geometry("400x400")
 
     tk.Label(ventana, text="ID del Producto:").pack(pady=5)
     id_producto_entry = tk.Entry(ventana)
@@ -1089,7 +1089,7 @@ botones_reportes = [
 # Configuración de la interfaz principal con estilos personalizados
 root = tk.Tk()
 root.title("Gestión de Comandas y Caja")
-root.geometry("1000x700")  # Ajusta el tamaño para más espacio
+root.geometry("1200x750")  # Ajusta el tamaño para más espacio
 
 # Estilo global
 titulo_font = ("Arial", 18, "bold")
