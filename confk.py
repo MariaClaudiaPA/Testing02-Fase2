@@ -21,6 +21,23 @@ def conectar_bd():
         return None
 
 
+
+# ============================
+# Funciones de validación
+# ============================
+
+# Validación para descripción: sólo letras
+def validar_descripcion_global(nuevo_valor):
+    if nuevo_valor == "":
+        return True
+    return bool(re.match(r'^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]*$', nuevo_valor))
+
+# Validación para precio: sólo números flotantes positivos
+def validar_precio_global(nuevo_valor):
+    if nuevo_valor == "":
+        return True
+    return bool(re.match(r"^\d*\.?\d*$", nuevo_valor))
+
 # ============================
 # Funciones de Productos
 # ============================
@@ -41,23 +58,23 @@ def obtener_productos():
             cursor.close()
             conn.close()
 
-
-
 def agregar_producto():
     ventana = Toplevel()
     ventana.title("Agregar Producto")
-    ventana.geometry("300x300")
+    ventana.geometry("300x350")
 
     tk.Label(ventana, text="ID del Producto (e.g. AAA000):").pack(pady=5)
     id_producto_entry = tk.Entry(ventana)
     id_producto_entry.pack(pady=5)
 
     tk.Label(ventana, text="Descripción:").pack(pady=5)
-    descripcion_entry = tk.Entry(ventana)
+    vcmd_desc = (ventana.register(validar_descripcion_global), "%P")
+    descripcion_entry = tk.Entry(ventana, validate="key", validatecommand=vcmd_desc)
     descripcion_entry.pack(pady=5)
 
     tk.Label(ventana, text="Precio Unitario:").pack(pady=5)
-    precio_entry = tk.Entry(ventana)
+    vcmd_precio = (ventana.register(validar_precio_global), "%P")
+    precio_entry = tk.Entry(ventana, validate="key", validatecommand=vcmd_precio)
     precio_entry.pack(pady=5)
 
     def guardar_producto():
@@ -66,7 +83,7 @@ def agregar_producto():
         if not id_producto:
             messagebox.showerror("Error", "El ID del producto no puede estar vacío.")
             return
-        if not re.match(r'^[A-Za-z]{3}[0-9]{3}$', id_producto):  # Formato "AAA000"
+        if not re.match(r'^[A-Za-z]{3}[0-9]{3}$', id_producto):
             messagebox.showerror("Error", "El ID debe seguir el formato 'AAA000' (tres letras seguidas de tres números).")
             return
         if len(id_producto) != 6 or not id_producto.isalnum():
@@ -75,13 +92,10 @@ def agregar_producto():
         if not descripcion:
             messagebox.showerror("Error", "La descripción no puede estar vacía.")
             return
-        if re.search(r'[^a-zA-Z0-9\sáéíóúÁÉÍÓÚñÑ]', descripcion):
-            messagebox.showerror("Error", "La descripción no puede contener caracteres especiales.")
-            return
         try:
             precio = float(precio_entry.get().strip())
             if precio < 0:
-                messagebox.showerror("Error", "El precio debe ser mayor a 0")
+                messagebox.showerror("Error", "El precio debe ser mayor o igual a 0")
                 return
         except ValueError:
             messagebox.showerror("Error", "Ingrese un precio válido.")
@@ -103,74 +117,114 @@ def agregar_producto():
 
     tk.Button(ventana, text="Guardar", command=guardar_producto).pack(pady=10)
 
-   
 def eliminar_producto():
     ventana = Toplevel()
     ventana.title("Eliminar Producto")
-    ventana.geometry("300x200")
+    ventana.geometry("350x200")
 
-    tk.Label(ventana, text="ID del Producto:").pack(pady=5)
-    id_producto_entry = tk.Entry(ventana)
-    id_producto_entry.pack(pady=5)
+    tk.Label(ventana, text="Seleccione un producto:").pack(pady=5)
+
+    conn = conectar_bd()
+    if not conn:
+        messagebox.showerror("Error", "No se pudo conectar a la base de datos.")
+        return
+
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT id_producto, descripcion_producto FROM producto")
+        productos = cursor.fetchall()
+
+        if not productos:
+            messagebox.showinfo("Aviso", "No hay productos para eliminar.")
+            ventana.destroy()
+            return
+        productos_dict = {f"{id_} - {descripcion}": id_ for id_ , descripcion in productos}
+
+        combo = ttk.Combobox(ventana, values=list(productos_dict.keys()), state="readonly", width=40)
+        combo.pack(pady=10)
+
+    except mysql.connector.Error as e:
+        messagebox.showerror("Error", f"No se pudieron obtener los productos: {e}")
+        cursor.close()
+        conn.close()
+        ventana.destroy()
+        return
 
     def confirmar_eliminar():
-        id_producto = id_producto_entry.get().strip()
-        if not id_producto:
-            messagebox.showerror("Error", "El ID del producto no puede estar vacío.")
+        seleccion = combo.get()
+        if not seleccion:
+            messagebox.showerror("Error", "Debe seleccionar un producto.")
             return
 
-        if len(id_producto) != 6 or not id_producto.isalnum():
-            messagebox.showerror("Error", "El ID debe tener 6 caracteres alfanuméricos y no puede contener caracteres especiales ni espacios.")
-            return
-        
-        if re.search(r'[^a-zA-Z0-9]', id_producto):
-            messagebox.showerror("Error", "El ID no puede contener caracteres especiales ni espacios.")
-            return
+        id_producto = productos_dict[seleccion]
 
-        conn = conectar_bd()
-        if conn:
-            cursor = conn.cursor()
-            try:
-                cursor.execute("SELECT COUNT(*) FROM producto WHERE id_producto = %s", (id_producto,))
-                if cursor.fetchone()[0] == 0:
-                    messagebox.showerror("Error", "El producto con ese ID no existe.")
-                    return
-
-                cursor.callproc("EliminarProducto", (id_producto,))
-                conn.commit()
-                messagebox.showinfo("Éxito", "Producto eliminado exitosamente.")
-                ventana.destroy()
-            except mysql.connector.Error as e:
-                messagebox.showerror("Error", f"Error al eliminar producto: {e}")
-            finally:
-                cursor.close()
-                conn.close()
+        try:
+            cursor.execute("DELETE FROM producto WHERE id_producto = %s", (id_producto,))
+            conn.commit()
+            messagebox.showinfo("Éxito", f"Producto {id_producto} eliminado exitosamente.")
+            ventana.destroy()
+        except mysql.connector.Error as e:
+            messagebox.showerror("Error", f"Error al eliminar producto: {e}")
+        finally:
+            cursor.close()
+            conn.close()
 
     tk.Button(ventana, text="Eliminar", command=confirmar_eliminar).pack(pady=10)
 
 def actualizar_producto():
     ventana = Toplevel()
     ventana.title("Actualizar Producto")
-    ventana.geometry("300x300")
+    ventana.geometry("350x350")
 
-    tk.Label(ventana, text="ID del Producto:").pack(pady=5)
-    id_producto_entry = tk.Entry(ventana)
-    id_producto_entry.pack(pady=5)
+    tk.Label(ventana, text="Seleccione un producto:").pack(pady=5)
+
+    conn = conectar_bd()
+    if not conn:
+        messagebox.showerror("Error", "No se pudo conectar a la base de datos.")
+        return
+
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT id_producto, descripcion_producto FROM producto")
+        productos = cursor.fetchall()
+
+        if not productos:
+            messagebox.showinfo("Aviso", "No hay productos para actualizar.")
+            ventana.destroy()
+            return
+
+        productos_dict = {f"{id_} - {descripcion}": id_ for id_, descripcion in productos}
+
+        combo = ttk.Combobox(ventana, values=list(productos_dict.keys()), state="readonly", width=40)
+        combo.pack(pady=5)
+    except mysql.connector.Error as e:
+        messagebox.showerror("Error", f"No se pudieron obtener los productos: {e}")
+        cursor.close()
+        conn.close()
+        ventana.destroy()
+        return
 
     tk.Label(ventana, text="Nueva Descripción:").pack(pady=5)
-    descripcion_entry = tk.Entry(ventana)
+    vcmd_desc = (ventana.register(validar_descripcion_global), "%P")
+    descripcion_entry = tk.Entry(ventana, validate="key", validatecommand=vcmd_desc)
     descripcion_entry.pack(pady=5)
 
     tk.Label(ventana, text="Nuevo Precio Unitario:").pack(pady=5)
-    precio_entry = tk.Entry(ventana)
+    vcmd_precio = (ventana.register(validar_precio_global), "%P")
+    precio_entry = tk.Entry(ventana, validate="key", validatecommand=vcmd_precio)
     precio_entry.pack(pady=5)
 
     def guardar_actualizacion():
-        id_producto = id_producto_entry.get().strip()
+        seleccion = combo.get()
+        if not seleccion:
+            messagebox.showerror("Error", "Debe seleccionar un producto.")
+            return
+
+        id_producto = productos_dict[seleccion]
         descripcion = descripcion_entry.get().strip()
 
-        if descripcion.isnumeric():
-            messagebox.showerror("Error", "La descripción no puede contener solo números.")
+        if not descripcion:
+            messagebox.showerror("Error", "La descripción no puede estar vacía.")
             return
 
         try:
@@ -182,30 +236,42 @@ def actualizar_producto():
             messagebox.showerror("Error", "Ingrese un precio válido.")
             return
 
-        conn = conectar_bd()
-        if conn:
-            cursor = conn.cursor()
-            try:
-                cursor.execute("SELECT COUNT(*) FROM producto WHERE id_producto = %s", (id_producto,))
-                if cursor.fetchone()[0] == 0:
-                    messagebox.showerror("Error", "El producto con ese ID no existe.")
-                    return
-
-                cursor.callproc("ActualizarProducto", (id_producto, descripcion, precio))
-                conn.commit()
-                messagebox.showinfo("Éxito", "Producto actualizado exitosamente.")
-                ventana.destroy()
-            except mysql.connector.Error as e:
-                messagebox.showerror("Error", f"Error al actualizar producto: {e}")
-            finally:
-                cursor.close()
-                conn.close()
+        try:
+            cursor.callproc("ActualizarProducto", (id_producto, descripcion, precio))
+            conn.commit()
+            messagebox.showinfo("Éxito", "Producto actualizado exitosamente.")
+            ventana.destroy()
+        except mysql.connector.Error as e:
+            messagebox.showerror("Error", f"Error al actualizar producto: {e}")
+        finally:
+            cursor.close()
+            conn.close()
 
     tk.Button(ventana, text="Actualizar", command=guardar_actualizacion).pack(pady=10)
 
 # ============================
 # Funciones de Comandas
 # ============================
+
+def generar_nuevo_id_comanda():
+    conn = conectar_bd()
+    nuevo_id = "COM0001"  
+    if conn:
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT id_comanda FROM comanda ORDER BY id_comanda DESC LIMIT 1")
+            resultado = cursor.fetchone()
+            if resultado:
+                ultimo_id = resultado[0]  
+                numero = int(re.search(r'\d+', ultimo_id).group())
+                numero += 1
+                nuevo_id = f"COM{numero:04d}"
+        except mysql.connector.Error as e:
+            messagebox.showerror("Error", f"No se pudo generar nuevo ID: {e}")
+        finally:
+            cursor.close()
+            conn.close()
+    return nuevo_id
 
 def agregar_comanda():
     ventana = Toplevel()
@@ -216,9 +282,15 @@ def agregar_comanda():
     fecha_actual = datetime.now().strftime('%Y-%m-%d')
     tk.Label(ventana, text=f"Fecha: {fecha_actual}", font=("Arial", 12)).pack(pady=5)
 
-    tk.Label(ventana, text="ID de Comanda:").pack()
+    tk.Label(ventana, text="ID de Comanda (Formato: COM1234):").pack()
     id_comanda_entry = tk.Entry(ventana)
     id_comanda_entry.pack()
+
+    nuevo_id = generar_nuevo_id_comanda()
+    id_comanda_entry.config(state="normal")
+    id_comanda_entry.delete(0, tk.END)
+    id_comanda_entry.insert(0, nuevo_id)
+    id_comanda_entry.config(state="readonly")
 
     productos = []
     pagos = []
@@ -328,6 +400,8 @@ def agregar_comanda():
         tipo_pago_menu.pack()
 
         tk.Label(pago_ventana, text="Monto:").pack()
+        vcmd = (pago_ventana.register(validar_precio_global), "%P")
+
         monto_entry = tk.Entry(pago_ventana)
         monto_entry.pack()
 
@@ -351,21 +425,14 @@ def agregar_comanda():
         
     def guardar_comanda():
         """
-        Guarda la comanda en la base de datos asegurando que el ID tenga una longitud fija de 8 caracteres con el prefijo "Nª".
+        Guarda la comanda en la base de datos asegurando que el ID tenga el formato COM1234.
         """
-        id_comanda_raw = id_comanda_entry.get().strip()
+        id_comanda = id_comanda_entry.get().strip()
 
         # Validar si los números del ID son numéricos y de longitud 6
-        if not id_comanda_raw.isdigit() or len(id_comanda_raw) != 6:
-            messagebox.showerror("Error", "El ID de la comanda debe ser numérico y contener 6 dígitos.")
+        if not re.match(r'^COM\d{4}$', id_comanda):
+            messagebox.showerror("Error", "El ID de la comanda debe tener el formato 'COM' seguido de 4 dígitos, por ejemplo: COM1234.")
             return
-
-        # Agregar el prefijo "Nª" automáticamente
-        id_comanda = f"Nª{id_comanda_raw}"
-
-        # Actualizar el valor en el campo de entrada para reflejar el formato final
-        id_comanda_entry.delete(0, tk.END)
-        id_comanda_entry.insert(0, id_comanda)
 
         total_comanda = sum([p[3] for p in productos])
 
@@ -412,67 +479,88 @@ def agregar_comanda():
     tk.Button(ventana, text="Agregar Pago", command=agregar_pago).pack(pady=10)
     tk.Button(ventana, text="Guardar Comanda", command=guardar_comanda).pack(pady=10)
 
-# Función para obtener el detalle de los productos de una comanda
+
 def detalle_productos_comanda():
     """
-    Solicita un ID de comanda y muestra los detalles de los productos de esa comanda.
+    Muestra una ventana para seleccionar una comanda y luego muestra el detalle de productos.
     """
-    # Solicitar el ID de la comanda al usuario
-    id_comanda = simpledialog.askstring(
-        "Detalle Productos Comanda",
-        "Ingrese el ID de la comanda (e.g., Nª123456):"
-    )
-    
-    # Validar entrada
-    if not id_comanda or not id_comanda.startswith("Nª") or len(id_comanda) < 8:
-        messagebox.showwarning("Advertencia", "Debe ingresar un ID de comanda válido con el formato 'Nª123456'.")
-        return
+    ventana = Toplevel()
+    ventana.title("Detalle Productos Comanda")
+    ventana.geometry("350x150")
+
+    tk.Label(ventana, text="Seleccione el ID de la comanda:").pack(pady=10)
 
     conn = conectar_bd()
-    if conn:
-        cursor = conn.cursor()
+    if not conn:
+        messagebox.showerror("Error", "No se pudo conectar a la base de datos.")
+        ventana.destroy()
+        return
+
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT id_comanda FROM comanda")
+        comandas = cursor.fetchall()
+
+        if not comandas:
+            messagebox.showinfo("Aviso", "No hay comandas registradas.")
+            ventana.destroy()
+            return
+
+        lista_comandas = [c[0] for c in comandas]
+        combo = ttk.Combobox(ventana, values=lista_comandas, state="readonly", width=20)
+        combo.pack(pady=5)
+    except mysql.connector.Error as e:
+        messagebox.showerror("Error", f"No se pudieron obtener las comandas: {e}")
+        cursor.close()
+        conn.close()
+        ventana.destroy()
+        return
+
+    def mostrar_detalle():
+        id_comanda = combo.get()
+        if not id_comanda:
+            messagebox.showwarning("Advertencia", "Debe seleccionar una comanda.")
+            return
+
         try:
-            # Llamar al procedimiento almacenado con el ID ingresado
             cursor.callproc("DetalleProductosPorComanda", (id_comanda,))
-            
-            # Recuperar los resultados
+
             datos = None
             for resultado in cursor.stored_results():
                 datos = resultado.fetchall()
 
-            # Si no hay resultados, mostrar un mensaje
             if not datos or len(datos) == 0:
                 messagebox.showinfo("Sin resultados", f"No se encontraron productos para la comanda {id_comanda}.")
                 return
 
-            # Crear una ventana para mostrar los resultados
             ventana_resultados = Toplevel()
             ventana_resultados.title(f"Detalle de Productos - Comanda {id_comanda}")
             ventana_resultados.geometry("600x400")
 
-            # Configuración del TreeView
             columnas = ("Producto", "Cantidad", "Subtotal")
             tree = ttk.Treeview(ventana_resultados, columns=columnas, show="headings")
             tree.pack(fill="both", expand=True)
 
-            # Configurar encabezados
             for col in columnas:
                 tree.heading(col, text=col)
                 tree.column(col, anchor="center", width=150)
 
-            # Insertar los datos obtenidos en el TreeView
             for fila in datos:
                 tree.insert("", "end", values=fila)
 
         except mysql.connector.Error as e:
             messagebox.showerror("Error", f"Error al consultar detalles: {e}")
-        finally:
-            cursor.close()
-            conn.close()
-    else:
-        messagebox.showerror("Error", "No se pudo conectar a la base de datos.")
 
+    btn_mostrar = tk.Button(ventana, text="Mostrar Detalle", command=mostrar_detalle)
+    btn_mostrar.pack(pady=10)
 
+    # Cerramos cursor y conexión cuando se cierra la ventana principal
+    def on_close():
+        cursor.close()
+        conn.close()
+        ventana.destroy()
+
+    ventana.protocol("WM_DELETE_WINDOW", on_close)
 
 
 
@@ -538,65 +626,84 @@ def ventas_por_categoria():
 
 def tipos_pago_por_comanda():
     """
-    Solicita un ID de comanda al usuario y muestra los tipos de pago asociados a esa comanda
-    usando el procedimiento almacenado TiposPagoPorComanda.
+    Muestra una ventana para seleccionar una comanda y luego muestra los tipos de pago asociados.
     """
-    # Solicitar el ID de la comanda al usuario
-    id_comanda = simpledialog.askstring(
-        "Tipos de Pago por Comanda",
-        "Ingrese el ID de la comanda (e.g., Nª123456):"
-    )
+    ventana = Toplevel()
+    ventana.title("Tipos de Pago por Comanda")
+    ventana.geometry("350x150")
 
-    # Validar entrada
-    if not id_comanda or not id_comanda.startswith("Nª") or len(id_comanda) < 8:
-        messagebox.showwarning("Advertencia", "Debe ingresar un ID de comanda válido con el formato 'Nª123456'.")
-        return
+    tk.Label(ventana, text="Seleccione el ID de la comanda:").pack(pady=10)
 
     conn = conectar_bd()
-    if conn:
-        cursor = conn.cursor()
+    if not conn:
+        messagebox.showerror("Error", "No se pudo conectar a la base de datos.")
+        ventana.destroy()
+        return
+
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT id_comanda FROM comanda")
+        comandas = cursor.fetchall()
+
+        if not comandas:
+            messagebox.showinfo("Aviso", "No hay comandas registradas.")
+            ventana.destroy()
+            return
+
+        lista_comandas = [c[0] for c in comandas]
+        combo = ttk.Combobox(ventana, values=lista_comandas, state="readonly", width=20)
+        combo.pack(pady=5)
+    except mysql.connector.Error as e:
+        messagebox.showerror("Error", f"No se pudieron obtener las comandas: {e}")
+        cursor.close()
+        conn.close()
+        ventana.destroy()
+        return
+
+    def mostrar_tipos_pago():
+        id_comanda = combo.get()
+        if not id_comanda:
+            messagebox.showwarning("Advertencia", "Debe seleccionar una comanda.")
+            return
+
         try:
-            # Llamar al procedimiento almacenado con el ID ingresado
             cursor.callproc("TiposPagoPorComanda", (id_comanda,))
 
-            # Recuperar los resultados
             datos = None
             for resultado in cursor.stored_results():
                 datos = resultado.fetchall()
 
-            # Si no hay resultados, mostrar un mensaje
             if not datos or len(datos) == 0:
                 messagebox.showinfo("Sin resultados", f"No se encontraron tipos de pago para la comanda {id_comanda}.")
                 return
 
-            # Crear una ventana para mostrar los resultados
             ventana_resultados = Toplevel()
             ventana_resultados.title(f"Tipos de Pago - Comanda {id_comanda}")
             ventana_resultados.geometry("600x400")
 
-            # Configuración del TreeView
             columnas = ("Tipo de Pago", "Monto")
             tree = ttk.Treeview(ventana_resultados, columns=columnas, show="headings")
             tree.pack(fill="both", expand=True)
 
-            # Configurar encabezados
             for col in columnas:
                 tree.heading(col, text=col)
                 tree.column(col, anchor="center", width=150)
 
-            # Insertar los datos obtenidos en el TreeView
             for fila in datos:
                 tree.insert("", "end", values=fila)
 
         except mysql.connector.Error as e:
             messagebox.showerror("Error", f"Error al consultar tipos de pago: {e}")
-        finally:
-            cursor.close()
-            conn.close()
-    else:
-        messagebox.showerror("Error", "No se pudo conectar a la base de datos.")
 
+    btn_mostrar = tk.Button(ventana, text="Mostrar Tipos de Pago", command=mostrar_tipos_pago)
+    btn_mostrar.pack(pady=10)
 
+    def on_close():
+        cursor.close()
+        conn.close()
+        ventana.destroy()
+
+    ventana.protocol("WM_DELETE_WINDOW", on_close)
 
 # ============================
 # Funciones de Cierre de Caja
@@ -611,11 +718,13 @@ def cierre_caja():
     tk.Label(ventana, text=f"Fecha: {fecha_actual}", font=("Arial", 12)).pack(pady=5)
 
     tk.Label(ventana, text="Total Efectivo Verificado:").pack()
-    efectivo_veri_entry = tk.Entry(ventana)
+    vcmd_efectivo = (ventana.register(validar_precio_global), "%P")
+    efectivo_veri_entry = tk.Entry(ventana, validate="key", validatecommand=vcmd_efectivo)
     efectivo_veri_entry.pack()
 
     tk.Label(ventana, text="Total Yape Verificado:").pack()
-    yape_veri_entry = tk.Entry(ventana)
+    vcmd_yape = (ventana.register(validar_precio_global), "%P")
+    yape_veri_entry = tk.Entry(ventana, validate="key", validatecommand=vcmd_yape)
     yape_veri_entry.pack()
 
     def guardar_cierre():
@@ -915,26 +1024,55 @@ def eliminar_cierre_caja():
                 messagebox.showerror("Error", f"Error al eliminar el cierre de caja: {e}")
 
 def eliminar_comanda():
-    id_comanda = simpledialog.askstring("Eliminar Comanda", "Ingresa el ID de la comanda a eliminar:")
-    if not id_comanda:
-        messagebox.showerror("Error", "El ID de la comanda no puede estar vacío.")
-        return
-    if not id_comanda.startswith("Nª") or len(id_comanda) != 8 or not id_comanda[2:].isdigit():
-        messagebox.showerror("Error", "El ID debe seguir el formato 'Nª123456' (con 'N°' seguido de 6 dígitos).")
+    ventana = Toplevel()
+    ventana.title("Eliminar Comanda")
+    ventana.geometry("300x150")
+
+    tk.Label(ventana, text="Seleccione la comanda a eliminar:").pack(pady=10)
+
+    conn = conectar_bd()
+    if not conn:
+        messagebox.showerror("Error", "No se pudo conectar a la base de datos.")
         return
 
-    with conectar_bd() as conn:
-        with conn.cursor() as cursor:
-            try:
-                cursor.execute("SELECT COUNT(*) FROM comanda WHERE id_comanda = %s", (id_comanda,))
-                if cursor.fetchone()[0] == 0:
-                    messagebox.showerror("Error", f"No se encontró una comanda con ID {id_comanda}.")
-                    return
-                cursor.callproc("EliminarComanda", (id_comanda,))
-                conn.commit()
-                messagebox.showinfo("Éxito", f"La comanda con ID {id_comanda} fue eliminada exitosamente.")
-            except mysql.connector.Error as e:
-                messagebox.showerror("Error", f"Error al eliminar la comanda: {e}")
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT id_comanda FROM comanda")
+        comandas = cursor.fetchall()
+        if not comandas:
+            messagebox.showinfo("Aviso", "No hay comandas para eliminar. como vas a eliminar una comanda si no hay ninguna en la base de datos? sanaso")
+            ventana.destroy()
+            return
+
+        lista_comandas = [id_[0] for id_ in comandas]
+        combo = ttk.Combobox(ventana, values=lista_comandas, state="readonly", width=20)
+        combo.pack(pady=5)
+
+    except mysql.connector.Error as e:
+        messagebox.showerror("Error", f"No se pudieron obtener las comandas: {e}")
+        cursor.close()
+        conn.close()
+        ventana.destroy()
+        return
+
+    def confirmar_eliminar():
+        id_comanda = combo.get()
+        if not id_comanda:
+            messagebox.showerror("Error", "Debe seleccionar una comanda.")
+            return
+
+        try:
+            cursor.callproc("EliminarComanda", (id_comanda,))
+            conn.commit()
+            messagebox.showinfo("Éxito", f"La comanda con ID {id_comanda} fue eliminada exitosamente.")
+            ventana.destroy()
+        except mysql.connector.Error as e:
+            messagebox.showerror("Error", f"Error al eliminar la comanda: {e}")
+        finally:
+            cursor.close()
+            conn.close()
+
+    tk.Button(ventana, text="Eliminar", command=confirmar_eliminar).pack(pady=10)
 
 # Función para consultar totales por tipo de pago en un rango de fechas
 def consulta_totales():

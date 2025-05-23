@@ -26,7 +26,7 @@ Create table cierre_caja (
 
 
 Create table comanda (
-	id_comanda char(8) primary key,
+	id_comanda char(7) primary key,
  	total decimal(5,2) ,
     fecha_cierre_de_caja date,
     foreign key (fecha_cierre_de_caja) references cierre_caja(fecha)
@@ -41,7 +41,7 @@ Create table producto (
 ) ENGINE=InnoDB;
 
 Create table pago_comanda (
-	id_comanda char(8) ,
+	id_comanda char(7) ,
  	codigo_tipo_de_pago varchar(6) ,
 	total_tipo_de_pago decimal(5,2),
     primary key(id_comanda,codigo_tipo_de_pago),
@@ -50,7 +50,7 @@ Create table pago_comanda (
 ) ENGINE=InnoDB;
 
 Create table detalle_comanda (
-	id_comanda char(8) ,
+	id_comanda char(7) ,
  	id_producto char(6) ,
 	cantidad_producto int,
     subtotal decimal(5,2),
