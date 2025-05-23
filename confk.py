@@ -363,7 +363,8 @@ def agregar_comanda():
         producto_menu.pack()
 
         tk.Label(producto_ventana, text="Cantidad:").pack()
-        cantidad_entry = tk.Entry(producto_ventana)
+        vcmd = (producto_ventana.register(validar_precio_global), "%P")
+        cantidad_entry = tk.Entry(producto_ventana, validate="key", validatecommand=vcmd) 
         cantidad_entry.pack()
 
         def guardar_producto():
@@ -401,8 +402,7 @@ def agregar_comanda():
 
         tk.Label(pago_ventana, text="Monto:").pack()
         vcmd = (pago_ventana.register(validar_precio_global), "%P")
-
-        monto_entry = tk.Entry(pago_ventana)
+        monto_entry = tk.Entry(pago_ventana, validate="key", validatecommand=vcmd) 
         monto_entry.pack()
 
         def guardar_pago():
@@ -580,6 +580,7 @@ def ventas_por_categoria():
         messagebox.showwarning("Advertencia", "Debe ingresar una categoría para realizar la búsqueda.")
         return
 
+    categoria = categoria.strip()
     conn = conectar_bd()
     if conn:
         cursor = conn.cursor()

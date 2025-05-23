@@ -224,12 +224,6 @@ INSERT INTO Cierre_Caja (Fecha, Yape_Veri, Efectivo_Veri, Tarjeta_Veri, Total_Ve
 
 
 INSERT INTO Comanda (Id_Comanda, Total, Fecha_Cierre_de_Caja) VALUES
-('COM1001', 120.00, '2023-09-28'),
-('COM1002', 150.00, '2023-09-28'),
-('COM1003', 180.00, '2023-09-29'),
-('COM1004', 130.00, '2023-09-29'),
-('COM1005', 200.00, '2023-09-30'),
-('COM1006', 170.00, '2023-09-30'),
 ('COM0001', 120.00, '2023-10-01'),
 ('COM0002', 150.00, '2023-10-01'),
 ('COM0003', 180.00, '2023-10-02'),
@@ -256,14 +250,6 @@ INSERT INTO Comanda (Id_Comanda, Total, Fecha_Cierre_de_Caja) VALUES
 
 
 INSERT INTO Pago_Comanda (ID_Comanda, Codigo_Tipo_de_Pago, Total_Tipo_de_Pago) VALUES
-('COM1001', 'EFE001', 60.00),
-('COM1001', 'TAR001', 60.00),
-('COM1002', 'YAP001', 150.00),
-('COM1003', 'EFE001', 100.00),
-('COM1003', 'TAR001', 80.00),
-('COM1004', 'YAP001', 130.00),
-('COM1005', 'EFE001', 120.00),
-('COM1005', 'TAR001', 80.00),
 ('COM0001', 'EFE001', 60.00),
 ('COM0001', 'TAR001', 60.00),
 ('COM0002', 'YAP001', 150.00),
@@ -633,7 +619,7 @@ BEGIN
            SUM(dc.subtotal) AS Total
     FROM detalle_comanda dc
     JOIN producto p ON dc.id_producto = p.id_producto
-    WHERE p.descripcion_producto LIKE CONCAT(categoria_nombre, '%')
+    WHERE p.descripcion_producto LIKE CONCAT('%', categoria_nombre, '%')
     GROUP BY p.descripcion_producto;
 END$$
 
